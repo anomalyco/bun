@@ -24,7 +24,8 @@ jobs:
             echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
           else
             BASE=$(cat LATEST | tr -d '[:space:]')
-            echo "version=${BASE}-opencode" >> "$GITHUB_OUTPUT"
+            TIMESTAMP=$(date +%Y%m%d%H%M%S)
+            echo "version=${BASE}-opencode.${TIMESTAMP}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Print version
