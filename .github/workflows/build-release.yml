@@ -61,7 +61,7 @@ jobs:
           Write-Output "Adding NativeDesktop workload to existing Build Tools..."
           $startInfo = New-Object System.Diagnostics.ProcessStartInfo
           $startInfo.FileName = $bootstrapper
-          $startInfo.Arguments = "modify --installPath ""C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools"" --add Microsoft.VisualStudio.Workload.NativeDesktop --includeRecommended --quiet --norestart --wait --force"
+          $startInfo.Arguments = "modify --installPath ""C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools"" --add Microsoft.VisualStudio.Workload.NativeDesktop --add Microsoft.VisualStudio.Component.VC.ATL --includeRecommended --quiet --norestart --wait --force"
           $startInfo.CreateNoWindow = $true
           $process = New-Object System.Diagnostics.Process
           $process.StartInfo = $startInfo
