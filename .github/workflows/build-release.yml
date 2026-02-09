@@ -51,8 +51,16 @@ jobs:
 
       - name: Install ATL component
         run: |
-          choco install visualstudio2022buildtools --yes --accept-license --no-progress --force `
-            --params "'--add Microsoft.VisualStudio.Component.VC.ATL --quiet --norestart --wait --nocache'"
+          # Download VS BuildTools bootstrapper and add ATL component
+          $bootstrapper = "$env:TEMP\vs_buildtools.exe"
+          Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vs_buildtools.exe" -OutFile $bootstrapper
+          $proc = Start-Process -FilePath $bootstrapper -ArgumentList `
+            "modify", `
+            "--installPath", "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools", `
+            "--add", "Microsoft.VisualStudio.Component.VC.ATL", `
+            "--quiet", "--norestart", "--wait", "--nocache" `
+            -Wait -PassThru -NoNewWindow
+          Write-Output "VS installer exit code: $($proc.ExitCode)"
           # Find and add ATL include/lib paths
           $msvcBase = "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC"
           $msvcVer = (Get-ChildItem $msvcBase | Sort-Object Name -Descending | Select-Object -First 1).Name
@@ -65,7 +73,7 @@ jobs:
             echo "LIB=$atlLib;$env:LIB" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           } else {
             Write-Error "ATL headers NOT found after installation at $atlInclude"
-            Get-ChildItem "$msvcBase\$msvcVer" -Recurse -Filter "atlstr.h" -ErrorAction SilentlyContinue
+            Get-ChildItem "$msvcBase\$msvcVer" -Recurse -Filter "atl*" -ErrorAction SilentlyContinue
             exit 1
           }
         shell: pwsh
