@@ -48,29 +48,42 @@ jobs:
           choco install llvm --yes --accept-license --no-progress --force --version=21.1.8
           echo "C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
-      # Blacksmith ships VS Build Tools (no ATL). Official bun CI uses full
-      # VS Community with NativeDesktop workload which includes ATL.
-      # See: scripts/bootstrap.ps1 Install-Visual-Studio (lines 322-352)
-      - name: Install Visual Studio Community (with ATL)
+      # Blacksmith has VS Build Tools but without NativeDesktop workload (no ATL).
+      # Add NativeDesktop + recommended components (includes ATL) to existing Build Tools.
+      - name: Add NativeDesktop workload to Build Tools
         run: |
-          $vsInstaller = "$env:TEMP\vs_community.exe"
-          Write-Output "Downloading VS 2022 Community installer..."
-          Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vs_community.exe" -OutFile $vsInstaller
-          Write-Output "Installing VS 2022 Community with NativeDesktop workload..."
+          # Kill any lingering VS installer processes
+          Get-Process -Name "setup","vs_installer" -ErrorAction SilentlyContinue | Stop-Process -Force
+          Start-Sleep -Seconds 5
+          $bootstrapper = "$env:TEMP\vs_buildtools.exe"
+          Write-Output "Downloading VS BuildTools bootstrapper..."
+          Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vs_buildtools.exe" -OutFile $bootstrapper
+          Write-Output "Adding NativeDesktop workload to existing Build Tools..."
           $startInfo = New-Object System.Diagnostics.ProcessStartInfo
-          $startInfo.FileName = $vsInstaller
-          $startInfo.Arguments = "--passive --norestart --wait --force --locale en-US --add Microsoft.VisualStudio.Workload.NativeDesktop --includeRecommended"
+          $startInfo.FileName = $bootstrapper
+          $startInfo.Arguments = "modify --installPath ""C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools"" --add Microsoft.VisualStudio.Workload.NativeDesktop --includeRecommended --quiet --norestart --wait --force"
           $startInfo.CreateNoWindow = $true
           $process = New-Object System.Diagnostics.Process
           $process.StartInfo = $startInfo
           $process.Start() | Out-Null
           $process.WaitForExit()
-          Write-Output "VS installer exit code: $($process.ExitCode)"
-          if ($process.ExitCode -ne 0 -and $process.ExitCode -ne 3010) {
-            Write-Error "VS Community install failed with exit code $($process.ExitCode)"
+          $exitCode = $process.ExitCode
+          Write-Output "VS installer exit code: $exitCode"
+          # 0 = success, 3010 = success but reboot needed
+          if ($exitCode -ne 0 -and $exitCode -ne 3010) {
+            Write-Error "Failed to add NativeDesktop workload (exit code $exitCode)"
             exit 1
           }
-          Write-Output "VS Community installed successfully"
+          # Verify ATL headers exist
+          $msvcBase = "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC"
+          $msvcVer = (Get-ChildItem $msvcBase | Sort-Object Name -Descending | Select-Object -First 1).Name
+          $atlPath = "$msvcBase\$msvcVer\atlmfc\include\atlstr.h"
+          if (Test-Path $atlPath) {
+            Write-Output "ATL verified: $atlPath"
+          } else {
+            Write-Error "ATL headers not found after installation"
+            exit 1
+          }
         shell: pwsh
 
       - name: Install build tools
