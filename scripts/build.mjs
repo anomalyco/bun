@@ -64,10 +64,6 @@ async function build(args) {
     return spawn("pwsh", ["-NoProfile", "-NoLogo", "-File", shellPath, process.argv0, scriptPath, ...args], { env });
   }
 
-  if (isCI) {
-    printEnvironment();
-  }
-
   const env = {
     ...process.env,
     FORCE_COLOR: "1",
