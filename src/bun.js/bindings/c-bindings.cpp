@@ -445,8 +445,8 @@ static std::atomic<bool> Bun__stdinRawMode{false};
 BOOL WINAPI Ctrlhandler(DWORD signal);
 
 // Forward declarations for the unified Ctrl+C handler.
-// Bun__currentSyncPID is defined later in this file (spawnSync section).
-extern "C" std::atomic<int64_t> Bun__currentSyncPID;
+// On Windows we define Bun__currentSyncPID here; POSIX defines it later (spawnSync section).
+extern "C" std::atomic<int64_t> Bun__currentSyncPID{0};
 // Defined in SigintWatcher.cpp — bridge functions to avoid including SigintWatcher.h.
 extern "C" bool Bun__isSigintWatcherInstalled();
 extern "C" void Bun__sigintWatcherSignalReceived();
