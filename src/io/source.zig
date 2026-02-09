@@ -367,8 +367,13 @@ export fn Source__setRawModeStdin(raw: bool) c_int {
     if (tty.setMode(if (raw) .vt else .normal).toError(.uv_tty_set_mode)) |err| {
         return err.errno;
     }
+    // Notify the Windows Ctrl+C handler so it can inject Ctrl+C as a keypress
+    // instead of terminating the process when stdin is in raw mode.
+    Bun__setStdinRawMode(raw);
     return 0;
 }
+
+extern "c" fn Bun__setStdinRawMode(raw: bool) void;
 
 const bun = @import("bun");
 const std = @import("std");

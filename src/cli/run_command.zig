@@ -13,6 +13,20 @@ pub const RunCommand = struct {
         "zsh",
     };
 
+    extern "c" fn Bun__incrementActiveSubprocess() void;
+    extern "c" fn Bun__decrementActiveSubprocess() void;
+    extern "c" fn Bun__hasPendingCtrlC() bool;
+    extern "c" fn Bun__clearPendingCtrlC() void;
+
+    fn maybeHandlePendingCtrlC() void {
+        if (comptime Environment.isWindows) {
+            if (Bun__hasPendingCtrlC()) {
+                Bun__clearPendingCtrlC();
+                Global.raiseIgnoringPanicHandler(.SIGINT);
+            }
+        }
+    }
+
     fn findShellImpl(PATH: string, cwd: string) ?stringZ {
         if (comptime Environment.isWindows) {
             return "C:\\Windows\\System32\\cmd.exe";
@@ -246,6 +260,12 @@ pub const RunCommand = struct {
         }
 
         if (!use_system_shell) {
+            if (comptime Environment.isWindows) {
+                Bun__clearPendingCtrlC();
+                Bun__incrementActiveSubprocess();
+            }
+            defer if (comptime Environment.isWindows) Bun__decrementActiveSubprocess();
+
             const mini = bun.jsc.MiniEventLoop.initGlobal(env, cwd);
             const code = bun.shell.Interpreter.initAndRunFromSource(ctx, mini, name, copy_script.items, cwd) catch |err| {
                 if (!silent) {
@@ -254,6 +274,8 @@ pub const RunCommand = struct {
 
                 Global.exit(1);
             };
+
+            maybeHandlePendingCtrlC();
 
             if (code > 0) {
                 if (code != 2 and !silent) {
@@ -278,6 +300,12 @@ pub const RunCommand = struct {
             const fd = std.fmt.parseInt(u31, node_ipc_fd, 10) catch break :blk null;
             break :blk bun.FD.fromNative(fd);
         } else null; // TODO: implement on Windows
+
+        if (comptime Environment.isWindows) {
+            Bun__clearPendingCtrlC();
+            Bun__incrementActiveSubprocess();
+        }
+        defer if (comptime Environment.isWindows) Bun__decrementActiveSubprocess();
 
         const spawn_result = switch ((bun.spawnSync(&.{
             .argv = &argv,
@@ -314,6 +342,8 @@ pub const RunCommand = struct {
             },
             .result => |result| result,
         };
+
+        maybeHandlePendingCtrlC();
 
         switch (spawn_result.status) {
             .exited => |exit_code| {
@@ -452,6 +482,12 @@ pub const RunCommand = struct {
         }
 
         const silent = ctx.debug.silent;
+        if (comptime Environment.isWindows) {
+            Bun__clearPendingCtrlC();
+            Bun__incrementActiveSubprocess();
+        }
+        defer if (comptime Environment.isWindows) Bun__decrementActiveSubprocess();
+
         const spawn_result = bun.spawnSync(&.{
             .argv = argv,
             .argv0 = executableZ,
@@ -500,6 +536,8 @@ pub const RunCommand = struct {
             }
             Global.exit(1);
         };
+
+        maybeHandlePendingCtrlC();
 
         switch (spawn_result) {
             .err => |err| {
