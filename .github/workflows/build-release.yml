@@ -55,6 +55,21 @@ jobs:
             --installPath "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools" `
             --add Microsoft.VisualStudio.Component.VC.ATL `
             --quiet --norestart --wait
+          # Find and add ATL include path to INCLUDE env var
+          $msvcBase = "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC"
+          $msvcVer = (Get-ChildItem $msvcBase | Sort-Object Name -Descending | Select-Object -First 1).Name
+          $atlInclude = "$msvcBase\$msvcVer\atlmfc\include"
+          $atlLib = "$msvcBase\$msvcVer\atlmfc\lib\x64"
+          Write-Output "ATL include: $atlInclude"
+          Write-Output "ATL lib: $atlLib"
+          if (Test-Path $atlInclude) {
+            Write-Output "ATL headers found"
+            echo "INCLUDE=$atlInclude;$env:INCLUDE" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            echo "LIB=$atlLib;$env:LIB" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          } else {
+            Write-Output "WARNING: ATL headers not found at $atlInclude"
+            Get-ChildItem "$msvcBase\$msvcVer" -Recurse -Filter "atlstr.h" -ErrorAction SilentlyContinue
+          }
         shell: pwsh
 
       - name: Install build tools
