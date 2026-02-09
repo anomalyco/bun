@@ -406,6 +406,44 @@ bun upgrade --canary
   - [Copy a file to another location](https://bun.com/guides/write-file/file-cp)
   - [Write a ReadableStream to a file](https://bun.com/guides/write-file/stream)
 
+## anomalyco/bun Fork
+
+This is a fork of [oven-sh/bun](https://github.com/oven-sh/bun) used by [opencode](https://github.com/anomalyco/opencode) to ship Windows builds with patches (e.g. Ctrl+C fix from [PR #25876](https://github.com/oven-sh/bun/pull/25876)).
+
+### Local Build + Release
+
+Prerequisites: working Bun toolchain on Windows (LLVM, CMake, Ninja, Rust, VS Build Tools with ATL). See upstream [contributing docs](https://bun.com/docs/project/contributing).
+
+```powershell
+cd C:\Repos\sst\bun
+
+# Build modern variant
+bun run build:release
+
+# Package modern
+mkdir bun-windows-x64-pkg\package\bin -Force
+copy build\release\bun.exe bun-windows-x64-pkg\package\bin\bun.exe
+tar -czf bun-windows-x64.tgz -C bun-windows-x64-pkg package
+
+# Build baseline variant
+bun run build:release --toolchain windows-x64-baseline
+
+# Package baseline
+mkdir bun-windows-x64-baseline-pkg\package\bin -Force
+copy build\release\bun.exe bun-windows-x64-baseline-pkg\package\bin\bun.exe
+tar -czf bun-windows-x64-baseline.tgz -C bun-windows-x64-baseline-pkg package
+
+# Create release and upload
+gh release create "v1.3.9-opencode.1" --repo anomalyco/bun --prerelease \
+  --title "bun 1.3.9-opencode.1" \
+  --notes "Windows build with Ctrl+C fix (PR #25876)"
+gh release upload "v1.3.9-opencode.1" \
+  bun-windows-x64.tgz bun-windows-x64-baseline.tgz \
+  --repo anomalyco/bun --clobber
+```
+
+The tarball structure (`package/bin/bun.exe`) matches what `BUN_COMPILE_TARGET_TARBALL_URL` expects. Once uploaded, the opencode build script (`packages/opencode/script/build.ts`) automatically pulls these tarballs when cross-compiling for Windows.
+
 ## Contributing
 
 Refer to the [Project > Contributing](https://bun.com/docs/project/contributing) guide to start contributing to Bun.
